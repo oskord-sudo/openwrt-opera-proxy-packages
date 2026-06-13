@@ -1,1 +1,43 @@
+name: Build opera-proxy packages
 
+on:
+  workflow_dispatch:
+    inputs:
+      openwrt_version:
+        description: 'OpenWrt version'
+        required: true
+        default: '25.12.0'
+      target:
+        description: 'Target (e.g., x86/64, ramips/mt7621)'
+        required: true
+        default: 'x86/64'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout packages repo
+        uses: actions/checkout@v4
+
+      - name: Download SDK
+        run: |
+          BASE_URL="https://downloads.openwrt.org/releases/${{ github.event.inputs.openwrt_version }}/targets/${{ github.event.inputs.target }}/"
+          SDK_URL=$(curl -s "$BASE_URL" | grep -oP 'href="openwrt-sdk[^"]+\.tar\.(zst|xz)"' | head -1 | sed 's/href="//;s/"$//')
+          wget "$BASE_URL$SDK_URL"
+          tar -xf "$SDK_URL"
+          mv openwrt-sdk* openwrt
+
+      - name: Build package
+        run: |
+          cp -r opera-proxy openwrt/package/
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          make defconfig
+          make package/opera-proxy/compile V=s
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: opera-proxy-${{ github.event.inputs.openwrt_version }}-${{ github.event.inputs.target }}
+          path: openwrt/bin/packages/**/opera-proxy*.apk
