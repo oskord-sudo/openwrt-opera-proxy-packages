@@ -40,7 +40,6 @@ jobs:
           curl -fsLO "${BASE_URL}${SDK_URL}"
           tar -xf "$(basename "$SDK_URL")"
           rm -f *.tar.zst *.tar.xz
-          # Находим распакованную папку и переименовываем её в openwrt
           SDK_DIR=$(ls -d openwrt-sdk-*/ | head -1)
           if [ -z "$SDK_DIR" ]; then
             echo "SDK directory not found"
@@ -57,8 +56,15 @@ jobs:
           make defconfig
           make package/opera-proxy/compile V=s
 
+      - name: Prepare artifact name
+        id: prepare
+        run: |
+          SAFE_NAME="opera-proxy-${{ github.event.inputs.openwrt_version }}-${{ github.event.inputs.target }}"
+          SAFE_NAME="${SAFE_NAME//\//-}"
+          echo "safe_name=${SAFE_NAME}" >> $GITHUB_OUTPUT
+
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
-          name: opera-proxy-${{ github.event.inputs.openwrt_version }}-${{ github.event.inputs.target }}
+          name: ${{ steps.prepare.outputs.safe_name }}-${{ github.run_id }}
           path: openwrt/bin/packages/**/opera-proxy*.apk
